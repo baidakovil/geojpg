@@ -1,6 +1,5 @@
 import pandas as pd
 import piexif
-from PIL import Image
 import re
 import os
 import datetime
