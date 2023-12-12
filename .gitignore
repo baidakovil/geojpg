@@ -4,5 +4,14 @@
 # Working files
 *.ipynb
 
-# Graphic editor folder
-/admin/gimp/
+# Working files
+data
+
+#  Binaries
+__pycache__
+
+# MyPy files
+.mypy*
+
+# IDE files
+.vscode
