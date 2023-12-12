@@ -1,15 +1,19 @@
+"""
+This module provide simple tests units.
+"""
+import io
 import os
+import unittest
+from contextlib import redirect_stdout
+
 from geojpg import main
 
 base_dir = os.path.dirname(__file__)
 
 
-import io
-import unittest
-from contextlib import redirect_stdout
-
-
 class Test(unittest.TestCase):
+    """Unit test Test Case"""
+
     def test_1(self):
         """Case where jpg dates earlier gpx"""
         buf = io.StringIO()
