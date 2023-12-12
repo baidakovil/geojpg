@@ -86,7 +86,7 @@ def read_gpx(folder: str) -> List[Point]:
         f for f in os.listdir(folder) if re.match(CFG.gpxfiles_pattern, f, re.I)
     ]
     if not gpxfiles:
-        print(f'No gpx files found!')
+        print('No gpx files found!')
         return []
 
     print(f'{len(gpxfiles)} found...', end='')
@@ -167,7 +167,7 @@ def find_coord(
 def process_jpg(
     jpg_dates: List[datetime],
     jpg_files: List[str],
-    folder_jpg: str,
+    folder: str,
     points: List[Point],
 ) -> None:
     """
@@ -175,7 +175,7 @@ def process_jpg(
     Args:
         jpg_dates: dates from jpgs
         jpg_files: list of files
-        folder_jpg: where stores jpgs
+        folder: where stores jpgs
         points: coordinate points from gpx
     """
     after = []
@@ -186,10 +186,10 @@ def process_jpg(
         lat, lon, error_type = find_coord(points, jpg_date)
         if error_type == 'ok':
             exif_gps = format_coord(lat, lon)
-            write_exif_gps(folder_jpg, jpg_file, exif_gps)
+            write_exif_gps(folder, jpg_file, exif_gps)
             os.rename(
-                folder_jpg + jpg_file,
-                folder_jpg + jpg_file[0:-4] + '_gps' + jpg_file[-4:],
+                folder + jpg_file,
+                folder + jpg_file[0:-4] + '_gps' + jpg_file[-4:],
             )
             norma.append(jpg_file)
         elif error_type == 'before':
@@ -253,18 +253,18 @@ def format_coord(lat: str, lon: str) -> Dict[int, Any]:
     return exif_gps
 
 
-def main(folder_jpg, folder_gpx) -> None:
+def main(f_jpg, f_gpx) -> None:
     """
     The only function to run.
     """
     print('\nSTART')
     start_time = time.monotonic()
 
-    points = read_gpx(folder_gpx)
+    points = read_gpx(f_gpx)
     if points:
-        jpg_dates, jpg_files = read_jpg(folder_jpg)
+        jpg_dates, jpg_files = read_jpg(f_jpg)
         if jpg_files:
-            process_jpg(jpg_dates, jpg_files, folder_jpg, points)
+            process_jpg(jpg_dates, jpg_files, f_jpg, points)
     end_time = time.monotonic()
     print(
         f'It took \
