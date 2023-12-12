@@ -1,146 +1,196 @@
-import pandas as pd
-import piexif
-import re
+"""The program embed gps coordinates from gpx into jpg files on time eq-ty"""
+
 import os
-import datetime
-from datetime import timedelta
+import re
+import time
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Literal, Tuple
+
+import piexif
 
 
-def write_exif_gps(folder, image_in, exif_gps):
+class Cfg:  # pylint: disable=too-few-public-methods
+    """
+    Class to keep config values.
+    """
 
-    # function to write gps coordinates in jpg file
+    minutes_max_jpg_gpx_delta = 15
+    meters_coord_bias = 5
+    utc_gap = 3
+    lat_pattern = r'lat="([0-9]+\.[0-9]+)'
+    lon_pattern = r'lon="([0-9]+\.[0-9]+)'
+    date_pattern = r'<time>(.*)</time>'
+    gpxdate_pattern = '%Y-%m-%dT%H:%M:%S.%fZ'
+    exifdate_pattern = '%Y:%m:%d %H:%M:%S'
+    gpxfiles_pattern = r'.*\.gpx'
+    jpgfiles_pattern = r'.*\.jpg'
 
+
+def write_exif_gps(folder: str, image_in: str, exif_gps: dict) -> bool:
+    """
+    Function to write gps coordinates in jpg file.
+    Args:
+        folder: folder where jpg file stores
+        image_in: jpg filename to write
+        exif_gps: gps coordinates to write
+    Returns:
+        True
+    """
     jpg_path = folder + image_in
     exif = piexif.load(jpg_path)
     exif['GPS'] = exif_gps
     exif_bytes = piexif.dump(exif)
     piexif.insert(exif_bytes, jpg_path)
-
     return True
 
 
-def read_gpx(folder):
+class Point:
+    """
+    Class to store and compare gpx geopoints.
+    """
 
-    # function to read coordinates and dates from gpx
-    print(f'\nRead gpx...', end='')
-    gpxfiles = [f for f in os.listdir(folder) if re.match(r'.*\.gpx', f)]
-    if len(gpxfiles) > 1:
-        print('There is more than one GPX file in folder! ')
+    def __init__(self, lat: str, lon: str, date: str) -> None:
+        self.lat = lat
+        self.lon = lon
+        self.date = datetime.strptime(date, CFG.gpxdate_pattern) + timedelta(
+            hours=CFG.utc_gap
+        )
+
+    def __hash__(self) -> int:
+        return hash(self.date)
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, self.__class__):
+            return self.date == other.date
         return False
-    gpx = open(folder + gpxfiles[0]).read()
+
+    def __lt__(self, other) -> bool:
+        if isinstance(other, self.__class__):
+            return self.date < other.date
+        return False
+
+    def __repr__(self) -> str:
+        return 'pnt:' + str(self.date)
+
+
+def read_gpx(folder: str) -> List[Point]:
+    """
+    Function to read coordinates and dates from gpx file.
+    Args:
+        folder: folder where gpx files stores.
+    Returns:
+        all points from gpx file.
+    """
+    print('\nRead gpx...', end='')
+    gpxfiles = [
+        f for f in os.listdir(folder) if re.match(CFG.gpxfiles_pattern, f, re.I)
+    ]
+    if not gpxfiles:
+        print(f'No gpx files found!')
+        return []
+
+    print(f'{len(gpxfiles)} found...', end='')
+    points = []
+    for gpxfile in gpxfiles:
+        with open(folder + gpxfile, encoding='utf-8') as file:
+            gpxtext = file.read()
+            lats, lons, dates = (
+                re.findall(pattern, gpxtext)
+                for pattern in (CFG.lat_pattern, CFG.lon_pattern, CFG.date_pattern)
+            )
+        points += [
+            Point(lat=lat, lon=lon, date=date)
+            for lat, lon, date in zip(lats, lons, dates)
+        ]
     print('ok')
-
-    lat_pattern = r'lat="([0-9]+\.[0-9]+)'
-    lon_pattern = r'lon="([0-9]+\.[0-9]+)'
-    date_pattern = r'<time>(.*)</time>'
-    lats = re.findall(lat_pattern, gpx)
-    lons = re.findall(lon_pattern, gpx)
-    dates = re.findall(date_pattern, gpx)
-
-    df_gpx = pd.DataFrame({'lats': lats, 'lons': lons, 'dates': dates})
-
-    df_gpx['dates'] = pd.to_datetime(df_gpx['dates'])
-    df_gpx['dates'] = df_gpx['dates'].apply(
-        lambda x: x.strftime('%Y-%m-%d %H:%M:%S'))
-    df_gpx['dates'] = pd.to_datetime(df_gpx['dates'])
-    df_gpx['dates'] = df_gpx['dates'].apply(lambda x: x+timedelta(hours=3))
-    df_gpx = df_gpx.drop_duplicates(subset=['dates'])
-    df_gpx = df_gpx.reset_index()
-    df_gpx = df_gpx.sort_values(by='dates')
-
-    first_date = df_gpx['dates'].iloc[0]
-    last_date = df_gpx['dates'].iloc[-1]
-
+    points_cleaned = list(dict.fromkeys(points))
+    print(f'Duplicates removed: {len(points) - len(points_cleaned)}')
+    points_sorted = sorted(points_cleaned)
     print(
-        f'Got {len(df_gpx)} gps points with dates\nFROM: {first_date} MSK\nTO  : {last_date} MSK')
+        f'Got {len(points_sorted)} gps points with dates in local time\n\
+FROM: {points_sorted[0].date}\n\
+TO  : {points_sorted[-1].date}'
+    )
+    return points_sorted
 
-    return df_gpx
 
-
-def read_jpg(folder):
-
-    # function to read dates from jpg files
-    print(f'\nRead jpg...', end='')
-    jpg_files = sorted([f for f in os.listdir(
-        folder) if re.match(r'.*\.JPG', f)])
-
-    if len(jpg_files) == 0:
-        print(f'\nNo JPG files in folder!')
-    else:
-        print(f'ok.\nGot {len(jpg_files)} JPG in folder')
-
-    dates_bytes = [piexif.load(folder + file)['0th'][306]
-                   for file in jpg_files]
-    dates = [re.findall(r'b\'(.*)\'', str(date_bytes))
-             [0].replace(':', '-', 2) for date_bytes in dates_bytes]
-    dates = pd.to_datetime(dates)
-
-    first_date = sorted(dates)[0]
-    last_date = sorted(dates)[-1]
-
+def read_jpg(folder: str) -> Tuple[List[datetime], List[str]]:
+    """
+    Function to read dates from jpg files.
+    Args:
+        folder: folder where jpgs are stored.
+    Returns:
+        List of dates, list of filenames
+    """
+    print('\nRead jpg...', end='')
+    jpg_files = sorted(
+        [f for f in os.listdir(folder) if re.match(CFG.jpgfiles_pattern, f, re.I)]
+    )
+    if not jpg_files:
+        print('\nNo JPG files in folder!')
+        return [], []
+    print(f'ok.\nGot {len(jpg_files)} JPG in folder')
+    dates_bts = [piexif.load(folder + file)['0th'][306] for file in jpg_files]
+    dates = [re.findall(r'b\'(.*)\'', str(date_bts))[0] for date_bts in dates_bts]
+    dates = [datetime.strptime(date, CFG.exifdate_pattern) for date in dates]
+    dates = sorted(dates)
     print(
-        f'Got {len(dates)} timestamps in JPGs\nFROM: {first_date} MSK\nTO  : {last_date} MSK')
-
+        f'Got {len(dates)} timestamps in JPGs\n\
+FROM: {(dates)[0]} MSK\n\
+TO  : {(dates)[-1]} MSK'
+    )
     return dates, jpg_files
 
 
-def find_coord(df_gpx, jpg_date):
-
-    # function to search nearest coordinates in gpx
-
-    max_delta = timedelta(minutes=15)
-    closest_index = df_gpx['dates'].searchsorted(jpg_date)
-
-    if closest_index == len(df_gpx):
-        closest_index = closest_index - 1
-
-    closest = df_gpx.iloc[closest_index]
-    date_gpx = closest['dates']
-
-    max_delta = timedelta(minutes=15)
-
+def find_coord(
+    gpxs: List[Point], jpg_date: datetime
+) -> Tuple[str, str, Literal['ok', 'before', 'after']]:
+    """
+    Gives coordinate point from gpx with nearest to jpg_date date.
+    Args:
+        gpxs: list of gps points
+        jpg_date: date from exif
+    Returns:
+        lat, lon - coordinates, one of error_types for statistics
+    """
+    max_delta = timedelta(minutes=CFG.minutes_max_jpg_gpx_delta)
+    td = [abs((gpx.date - jpg_date).total_seconds()) for gpx in gpxs]
+    closest_point = gpxs[td.index(min(td))]
+    date, lat, lon = closest_point.date, closest_point.lat, closest_point.lon
     error_type = 'ok'
-
-    if jpg_date < date_gpx:
-        delta = date_gpx - jpg_date
-        if delta > max_delta:
-            # print('Photo made before gpx, delta is more than 15 minutes')
-            lat = ''
-            lon = ''
-            error_type = 'before'
-            return lat, lon, error_type
-    else:
-        delta = jpg_date - date_gpx
-        if delta > max_delta:
-            # print('Photo made after gpx, delta is more than 15 minutes')
-            lat = ''
-            lon = ''
-            error_type = 'after'
-            return lat, lon, error_type
-
-    lat = closest['lats']
-    lon = closest['lons']
-
+    if abs(date - jpg_date) > max_delta:
+        lat, lon = '', ''
+        error_type = 'before' if jpg_date < date else 'after'
     return lat, lon, error_type
 
 
-def process_jpg(jpg_dates, jpg_files, folder_jpg, df_gpx):
-
-    # function to process all jpg files and count errors
-
+def process_jpg(
+    jpg_dates: List[datetime],
+    jpg_files: List[str],
+    folder_jpg: str,
+    points: List[Point],
+) -> None:
+    """
+    Function to find nearest coord for every jpg file, insert, save and count.
+    Args:
+        jpg_dates: dates from jpgs
+        jpg_files: list of files
+        folder_jpg: where stores jpgs
+        points: coordinate points from gpx
+    """
     after = []
     before = []
     norma = []
 
     for jpg_date, jpg_file in zip(jpg_dates, jpg_files):
-
-        lat, lon, error_type = find_coord(df_gpx, jpg_date)
-
+        lat, lon, error_type = find_coord(points, jpg_date)
         if error_type == 'ok':
             exif_gps = format_coord(lat, lon)
             write_exif_gps(folder_jpg, jpg_file, exif_gps)
-            os.rename(folder_jpg + jpg_file, folder_jpg +
-                      jpg_file[0:-4] + '_gps' + jpg_file[-4:])
+            os.rename(
+                folder_jpg + jpg_file,
+                folder_jpg + jpg_file[0:-4] + '_gps' + jpg_file[-4:],
+            )
             norma.append(jpg_file)
         elif error_type == 'before':
             before.append(jpg_file)
@@ -148,32 +198,41 @@ def process_jpg(jpg_dates, jpg_files, folder_jpg, df_gpx):
         elif error_type == 'after':
             after.append(jpg_file)
             exif_gps = 'No gps'
-
         # print(jpg_date, jpg_file, lat, lon, error_type, exif_gps)
-
-    if len(norma) > 0:
+    if norma:
         print(f'\nNice. {len(norma)} files updated')
     else:
-        print(f'\nFinished, but no files updated :(')
-
-    if len(before) > 0:
+        print('\nFinished, but no files updated :(')
+    if before:
         print(
-            f'{len(before)} file(s) not updated, seemed made before tracking:', ', '.join(before))
-
-    if len(after) > 0:
+            f'{len(before)} file(s) not updated, seemed made before tracking:',
+            ', '.join(before),
+        )
+    if after:
         print(
-            f'{len(after)} file(s) not updated, seemed made after tracking:', ', '.join(after))
+            f'{len(after)} file(s) not updated, seemed made after tracking:',
+            ', '.join(after),
+        )
 
-    return True
 
-
-def format_coord(lat, lon):
-
-    # function to convert decimal coordinates to degree-minutes-seconds coordinates
+def format_coord(lat: str, lon: str) -> Dict[int, Any]:
+    """
+    Function to reformat coordinates from strings to exif format.
+    Args:
+        lat, lon: decima floats as strings from gpx
+    Returns:
+        Dict with keys 1, 2, 3, 4, 31 as special exif fields.
+    """
 
     def decdeg2dms(dd):
-
-        mnt, sec = divmod(abs(dd)*3600, 60)
+        """
+        Convert decimal degrees to degrees-minutes-seconds format.
+        Args:
+            dd: decimal degree value
+        Returns:
+            degree, minute, second/multiplier, multiplier
+        """
+        mnt, sec = divmod(abs(dd) * 3600, 60)
         deg, mnt = divmod(mnt, 60)
 
         result_deg = int(deg)
@@ -181,32 +240,43 @@ def format_coord(lat, lon):
         result_sec = int(str(sec).replace('.', '')[0:4])
 
         sec_mltpl = int(round(result_sec / sec))
-
         return result_deg, result_mnt, result_sec, sec_mltpl
 
     lat_deg, lat_mnt, lat_sec, lat_sec_mltpl = decdeg2dms(float(lat))
     lon_deg, lon_mnt, lon_sec, lon_sec_mltpl = decdeg2dms(float(lon))
 
-    exif_gps = {1: b'N',
-                3: b'E'}
+    exif_gps: Dict[int, Any] = {1: b'N', 3: b'E'}
     exif_gps[2] = (lat_deg, 1), (lat_mnt, 1), (lat_sec, lat_sec_mltpl)
     exif_gps[4] = (lon_deg, 1), (lon_mnt, 1), (lon_sec, lon_sec_mltpl)
-
-    exif_gps[31] = (5, 1)
+    exif_gps[31] = (CFG.meters_coord_bias, 1)
 
     return exif_gps
 
 
-def main():
-    print(f'\nSTART')
-    df_gpx = read_gpx(folder_gpx)
-    jpg_dates, jpg_files = read_jpg(folder_jpg)
-    process_jpg(jpg_dates, jpg_files, folder_jpg, df_gpx)
-    print(f'\nFINISH\n')
-    return True
+def main(folder_jpg, folder_gpx) -> None:
+    """
+    The only function to run.
+    """
+    print('\nSTART')
+    start_time = time.monotonic()
+
+    points = read_gpx(folder_gpx)
+    if points:
+        jpg_dates, jpg_files = read_jpg(folder_jpg)
+        if jpg_files:
+            process_jpg(jpg_dates, jpg_files, folder_jpg, points)
+    end_time = time.monotonic()
+    print(
+        f'It took \
+{round(timedelta(seconds=end_time - start_time).total_seconds(),2)} seconds'
+    )
+    print('\nFINISH\n')
 
 
 base_dir = os.path.dirname(__file__)
-folder_jpg = os.path.join(base_dir, './')
-folder_gpx = os.path.join(base_dir, './')
-main()
+folder_jpg = os.path.join(base_dir, './test/9/')
+folder_gpx = folder_jpg
+CFG = Cfg()
+
+if __name__ == '__main__':
+    main(folder_jpg, folder_gpx)
