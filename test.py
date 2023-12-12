@@ -4,7 +4,7 @@ This module provide simple tests units.
 import io
 import os
 import unittest
-from contextlib import redirect_stdout
+import contextlib
 
 from geojpg import main
 
@@ -20,7 +20,7 @@ class Test(unittest.TestCase):
         subfolder = './test/1/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn("26 files updated", buf.getvalue())
         self.assertIn(
@@ -34,7 +34,7 @@ class Test(unittest.TestCase):
         subfolder = './test/2/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn("6 files updated", buf.getvalue())
         self.assertIn(
@@ -48,7 +48,7 @@ class Test(unittest.TestCase):
         subfolder = './test/3/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn(
             "Nice. 3 files updated",
@@ -69,7 +69,7 @@ class Test(unittest.TestCase):
         subfolder = './test/4/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn(
             "Nice. 3 files updated",
@@ -82,7 +82,7 @@ class Test(unittest.TestCase):
         subfolder = './test/5/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn(
             "Nice. 8 files updated",
@@ -103,7 +103,7 @@ class Test(unittest.TestCase):
         subfolder = './test/6/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn(
             "Nice. 5 files updated",
@@ -124,7 +124,7 @@ class Test(unittest.TestCase):
         subfolder = './test/7/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn(
             "Finished, but no files updated :(",
@@ -141,7 +141,7 @@ class Test(unittest.TestCase):
         subfolder = './test/8/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn(
             "Nice. 1 files updated",
@@ -158,7 +158,7 @@ class Test(unittest.TestCase):
         subfolder = './test/9/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn(
             "Nice. 2 files updated",
@@ -175,7 +175,7 @@ class Test(unittest.TestCase):
         subfolder = './test/10/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn(
             "START\n\nRead gpx...No gpx files found!\nIt took 0.0 seconds\n\nFINISH",
@@ -188,7 +188,7 @@ class Test(unittest.TestCase):
         subfolder = './test/11/'
         folder_gpx = os.path.join(base_dir, subfolder)
         folder_jpg = folder_gpx
-        with redirect_stdout(buf):
+        with contextlib.redirect_stdout(buf):
             main(folder_gpx, folder_jpg)
         self.assertIn(
             "Read jpg...\nNo JPG files in folder!",
