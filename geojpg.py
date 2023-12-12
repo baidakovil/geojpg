@@ -27,16 +27,16 @@ class Cfg:  # pylint: disable=too-few-public-methods
     Class to keep config values.
     """
 
-    minutes_max_jpg_gpx_delta = 15
-    meters_coord_bias = 5
-    utc_gap = 3
-    lat_pattern = r'lat="([0-9]+\.[0-9]+)'
-    lon_pattern = r'lon="([0-9]+\.[0-9]+)'
-    date_pattern = r'<time>(.*)</time>'
-    gpxdate_pattern = '%Y-%m-%dT%H:%M:%S.%fZ'
-    exifdate_pattern = '%Y:%m:%d %H:%M:%S'
-    gpxfiles_pattern = r'.*\.gpx'
-    jpgfiles_pattern = r'.*\.jpg'
+    MINUTES_MAX_JPG_GPX_DELTA = 15
+    METERS_COORD_BIAS = 5
+    UTC_GAP = 3
+    LAT_PATTERN = r'lat="([0-9]+\.[0-9]+)'
+    LON_PATTERN = r'lon="([0-9]+\.[0-9]+)'
+    DATE_PATTERN = r'<time>(.*)</time>'
+    GPXDATE_PATTERN = '%Y-%m-%dT%H:%M:%S.%fZ'
+    EXIFDATE_PATTERN = '%Y:%m:%d %H:%M:%S'
+    GPXFILES_PATTERN = r'.*\.gpx'
+    JPGFILES_PATTERN = r'.*\.jpg'
 
 
 def write_exif_gps(folder: str, image_in: str, exif_gps: dict) -> bool:
@@ -65,8 +65,8 @@ class Point:
     def __init__(self, lat: str, lon: str, date: str) -> None:
         self.lat = lat
         self.lon = lon
-        self.date = datetime.strptime(date, CFG.gpxdate_pattern) + timedelta(
-            hours=CFG.utc_gap
+        self.date = datetime.strptime(date, CFG.GPXDATE_PATTERN) + timedelta(
+            hours=CFG.UTC_GAP
         )
 
     def __hash__(self) -> int:
@@ -96,7 +96,7 @@ def read_gpx(folder: str) -> List[Point]:
     """
     print('\nRead gpx...', end='')
     gpxfiles = [
-        f for f in os.listdir(folder) if re.match(CFG.gpxfiles_pattern, f, re.I)
+        f for f in os.listdir(folder) if re.match(CFG.GPXFILES_PATTERN, f, re.I)
     ]
     if not gpxfiles:
         print('No gpx files found!')
@@ -109,7 +109,7 @@ def read_gpx(folder: str) -> List[Point]:
             gpxtext = file.read()
             lats, lons, dates = (
                 re.findall(pattern, gpxtext)
-                for pattern in (CFG.lat_pattern, CFG.lon_pattern, CFG.date_pattern)
+                for pattern in (CFG.LAT_PATTERN, CFG.LON_PATTERN, CFG.DATE_PATTERN)
             )
         points += [
             Point(lat=lat, lon=lon, date=date)
@@ -137,7 +137,7 @@ def read_jpg(folder: str) -> Tuple[List[datetime], List[str]]:
     """
     print('\nRead jpg...', end='')
     jpg_files = sorted(
-        [f for f in os.listdir(folder) if re.match(CFG.jpgfiles_pattern, f, re.I)]
+        [f for f in os.listdir(folder) if re.match(CFG.JPGFILES_PATTERN, f, re.I)]
     )
     if not jpg_files:
         print('\nNo JPG files in folder!')
@@ -145,7 +145,7 @@ def read_jpg(folder: str) -> Tuple[List[datetime], List[str]]:
     print(f'ok.\nGot {len(jpg_files)} JPG in folder')
     dates_bts = [piexif.load(folder + file)['0th'][306] for file in jpg_files]
     dates = [re.findall(r'b\'(.*)\'', str(date_bts))[0] for date_bts in dates_bts]
-    dates = [datetime.strptime(date, CFG.exifdate_pattern) for date in dates]
+    dates = [datetime.strptime(date, CFG.EXIFDATE_PATTERN) for date in dates]
     dates = sorted(dates)
     print(
         f'Got {len(dates)} timestamps in JPGs\n\
@@ -166,7 +166,7 @@ def find_coord(
     Returns:
         lat, lon - coordinates, one of error_types for statistics
     """
-    max_delta = timedelta(minutes=CFG.minutes_max_jpg_gpx_delta)
+    max_delta = timedelta(minutes=CFG.MINUTES_MAX_JPG_GPX_DELTA)
     td = [abs((gpx.date - jpg_date).total_seconds()) for gpx in gpxs]
     closest_point = gpxs[td.index(min(td))]
     date, lat, lon = closest_point.date, closest_point.lat, closest_point.lon
@@ -261,7 +261,7 @@ def format_coord(lat: str, lon: str) -> Dict[int, Any]:
     exif_gps: Dict[int, Any] = {1: b'N', 3: b'E'}
     exif_gps[2] = (lat_deg, 1), (lat_mnt, 1), (lat_sec, lat_sec_mltpl)
     exif_gps[4] = (lon_deg, 1), (lon_mnt, 1), (lon_sec, lon_sec_mltpl)
-    exif_gps[31] = (CFG.meters_coord_bias, 1)
+    exif_gps[31] = (CFG.METERS_COORD_BIAS, 1)
 
     return exif_gps
 
