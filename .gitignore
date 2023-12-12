@@ -1,2 +1,8 @@
+# Folder with test files
 *sample*
+
+# Working files
+*.ipynb
+
+# Graphic editor folder
 /admin/gimp/
