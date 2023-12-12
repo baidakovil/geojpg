@@ -5,9 +5,9 @@ Helpful when your DSLR camera **have no gps**, but your phone **have**.
 ## How it works
 
 
-![start_track](admin/geojpg-how-to-1.jpg)
-![start_track](admin/arrow.png)
-![start_track](admin/geojpg-how-to-2.jpg)
+![start_track](docs/geojpg-how-to-1.jpg)
+![start_track](docs/arrow.png)
+![start_track](docs/geojpg-how-to-2.jpg)
 
 ## What you need to use geojpg
 
