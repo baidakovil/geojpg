@@ -27,14 +27,29 @@ class Cfg:  # pylint: disable=too-few-public-methods
     Class to keep config values.
     """
 
+    #  If photo shooted before gpx started, or if photo shooted after gpx was
+    #  stopped, this settings (in minutes) allows insert to jpg nearest point
     MINUTES_MAX_JPG_GPX_DELTA = 15
+
+    #  EXIF GPS precision parameter
     METERS_COORD_BIAS = 5
-    UTC_GAP = 3
-    LAT_PATTERN = r'lat="([0-9]+\.[0-9]+)'
-    LON_PATTERN = r'lon="([0-9]+\.[0-9]+)'
-    DATE_PATTERN = r'<time>(.*)</time>'
-    GPXDATE_PATTERN = '%Y-%m-%dT%H:%M:%S.%fZ'
-    EXIFDATE_PATTERN = '%Y:%m:%d %H:%M:%S'
+
+    #  Timezone offset for gpx timestamps
+    HOURS_UTC_OFFSET_GPX = 3
+
+    #  Timezone offset for gpx timestamps
+    HOURS_UTC_OFFSET_JPG = 0
+
+    #  Regex patterns to find data in gpx file
+    LAT_PATTERN_GPX = r'lat="([0-9]+\.[0-9]+)'
+    LON_PATTERN_GPX = r'lon="([0-9]+\.[0-9]+)'
+    DATE_PATTERN_GPX = r'<time>(.*)</time>'
+
+    #  Patterns to parse datetime in gpx and in jpgs
+    GPX_DATE_PARSEPATTERN = '%Y-%m-%dT%H:%M:%S.%fZ'
+    JPG_DATE_PARSEPATTERN = '%Y:%m:%d %H:%M:%S'
+
+    #  Patterns to search files. Case non-sensitive
     GPXFILES_PATTERN = r'.*\.gpx'
     JPGFILES_PATTERN = r'.*\.jpg'
 
@@ -65,8 +80,8 @@ class Point:
     def __init__(self, lat: str, lon: str, date: str) -> None:
         self.lat = lat
         self.lon = lon
-        self.date = datetime.strptime(date, CFG.GPXDATE_PATTERN) + timedelta(
-            hours=CFG.UTC_GAP
+        self.date = datetime.strptime(date, CFG.GPX_DATE_PARSEPATTERN) + timedelta(
+            hours=CFG.HOURS_UTC_OFFSET_GPX
         )
 
     def __hash__(self) -> int:
@@ -109,7 +124,11 @@ def read_gpx(folder: str) -> List[Point]:
             gpxtext = file.read()
             lats, lons, dates = (
                 re.findall(pattern, gpxtext)
-                for pattern in (CFG.LAT_PATTERN, CFG.LON_PATTERN, CFG.DATE_PATTERN)
+                for pattern in (
+                    CFG.LAT_PATTERN_GPX,
+                    CFG.LON_PATTERN_GPX,
+                    CFG.DATE_PATTERN_GPX,
+                )
             )
         points += [
             Point(lat=lat, lon=lon, date=date)
@@ -145,7 +164,11 @@ def read_jpg(folder: str) -> Tuple[List[datetime], List[str]]:
     print(f'ok.\nGot {len(jpg_files)} JPG in folder')
     dates_bts = [piexif.load(folder + file)['0th'][306] for file in jpg_files]
     dates = [re.findall(r'b\'(.*)\'', str(date_bts))[0] for date_bts in dates_bts]
-    dates = [datetime.strptime(date, CFG.EXIFDATE_PATTERN) for date in dates]
+    dates = [
+        datetime.strptime(date, CFG.JPG_DATE_PARSEPATTERN)
+        + timedelta(hours=CFG.HOURS_UTC_OFFSET_JPG)
+        for date in dates
+    ]
     dates = sorted(dates)
     print(
         f'Got {len(dates)} timestamps in JPGs\n\
